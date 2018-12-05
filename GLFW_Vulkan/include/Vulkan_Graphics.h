@@ -10,7 +10,6 @@
 #include "Queue_Wrapper.h"
 #include "Commands_Wrapper.h"
 
-
 class Vulkan_Graphics
 {
 private:
@@ -37,8 +36,10 @@ private:
 	VkDeviceQueueCreateInfo			*queueCreateInfo;
 	VkPhysicalDeviceFeatures		deviceFeatures;
 
-	VkSemaphore						imageAvailableSemaphore;
-	VkSemaphore						renderFinishedSemaphore;
+	std::vector<VkSemaphore>		imageAvailableSemaphores;
+	std::vector<VkSemaphore>		renderFinishedSemaphores;
+	std::vector<VkFence>			inFlightFences;
+	size_t							currentFrame;
 
 	std::vector<VkLayerProperties>	validationAvailableLayers;
 	std::vector<const char*>		validationInstanceLayerNames;

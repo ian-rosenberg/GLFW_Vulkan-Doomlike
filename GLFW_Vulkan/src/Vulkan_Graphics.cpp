@@ -3,6 +3,8 @@
 
 static bool enableValidationLayers;
 
+const static int MAX_FRAMES_IN_FLIGHT = 2;
+
 const static std::vector<const char*> validationLayers = {
 	"VK_LAYER_LUNARG_standard_validation"
 };
@@ -81,6 +83,8 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	cmdWrapper->CreateCommandBuffers(&graphicsCommandBuffers, swapchainWrapper->GetFrameBuffers().size(), swapchainWrapper->GetFrameBuffers(), &pipeWrapper->GetCurrentPipe(), swapchainWrapper->GetExtent(), graphicsCommandPool);
 
 	CreateSemaphores();
+
+	currentFrame = 0;
 }
 
 void Vulkan_Graphics::SetupDebugCallback() 
@@ -133,9 +137,13 @@ Vulkan_Graphics::~Vulkan_Graphics()
 		swapchainWrapper->~Swapchain_Wrapper();
 	}
 
-	vkDestroySemaphore(logicalDevice, renderFinishedSemaphore, nullptr);
-	vkDestroySemaphore(logicalDevice, imageAvailableSemaphore, nullptr);
-	
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
+		vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
+		vkDestroyFence(logicalDevice, inFlightFences[i], nullptr);
+	}
+
 	if (vkInstance)
 	{
 		vkDestroyInstance(vkInstance, nullptr); 
@@ -355,176 +363,35 @@ VkDeviceCreateInfo Vulkan_Graphics::GetDeviceInfo(bool validation)
 void Vulkan_Graphics::CreateSemaphores()
 {
 	VkSemaphoreCreateInfo semaphoreInfo = {};
+	VkFenceCreateInfo fenceInfo = {};
 
-	imageAvailableSemaphore = VK_NULL_HANDLE;
-	renderFinishedSemaphore = VK_NULL_HANDLE;
+	imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+	renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+	inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	if ((vkCreateSemaphore(logicalDevice, &semaphoreInfo, NULL, &imageAvailableSemaphore) != VK_SUCCESS) ||
-		(vkCreateSemaphore(logicalDevice, &semaphoreInfo, NULL, &renderFinishedSemaphore) != VK_SUCCESS))
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
 	{
-		slog("failed to create semaphores!");
-	}
-	else{
-		slog("created semaphores!");
-	}
-}
-
-uint32_t Vulkan_Graphics::BeginDrawFrame()
-{
-	uint32_t imageIndex;
-	VkSwapchainKHR swapChains[1] = {};
-
-	swapChains[0] = swapchainWrapper->GetSwapchain();
-
-	vkAcquireNextImageKHR(
-		logicalDevice,
-		swapChains[0],
-		UINT_MAX,
-		imageAvailableSemaphore,
-		VK_NULL_HANDLE,
-		&imageIndex);
-
-	return imageIndex;
-}
-
-void Vulkan_Graphics::EndDrawFrame(uint32_t imageIndex)
-{
-
-	VkPresentInfoKHR presentInfo = {};
-	VkSubmitInfo submitInfo = {};
-	VkSwapchainKHR swapChains[1] = {};
-	VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
-	VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
-	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	swapChains[0] = swapchainWrapper->GetSwapchain();
-
-	//gf3d_vgraphics_update_uniform_buffer(imageIndex);
-
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = waitSemaphores;
-	submitInfo.pWaitDstStageMask = waitStages;
-	//get count of configured command buffers
-	//get the list of command buffers
-
-	submitInfo.commandBufferCount = graphicsCommands->commandBufferCount;
-	submitInfo.pCommandBuffers = graphicsCommands->commandBuffers.data();
-
-	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = signalSemaphores;
-
-	if (vkQueueSubmit(queueWrapper->GetPresentQueue(), 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
-	{
-		slog("failed to submit draw command buffer!");
-	}
-
-	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = signalSemaphores;
-
-	presentInfo.swapchainCount = 1;
-	presentInfo.pSwapchains = swapChains;
-	presentInfo.pImageIndices = &imageIndex;
-	presentInfo.pResults = NULL; // Optional
-
-	vkQueuePresentKHR(queueWrapper->GetPresentQueue(), &presentInfo);
-}
-
-
-
-
-//testing
-/*void Vulkan_Graphics::DrawFrame() {
-	uint32_t imageIndex;
-	vkAcquireNextImageKHR(logicalDevice, swapchainWrapper->GetSwapchain(), std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
-	
-	VkRenderPassBeginInfo renderPassInfo = {};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = currentPipe.renderPass;
-	renderPassInfo.framebuffer = swapchainFramebuffers[imageIndex];
-
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = swapchainWrapper->GetExtent();
-
-	VkClearValue clearColor = { 0.0f, 1.0f, 0.0f, 1.0f };
-	renderPassInfo.clearValueCount = 1;
-	renderPassInfo.pClearValues = &clearColor;
-
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-	VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
-	VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = waitSemaphores;
-	submitInfo.pWaitDstStageMask = waitStages;
-
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = graphicsCommands->commandBuffers.data();
-
-	VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
-	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = signalSemaphores;
-
-
-	if (vkQueueSubmit(queueWrapper->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to submit draw command buffer!");
-	}
-
-	VkPresentInfoKHR presentInfo = {};
-	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = signalSemaphores;
-
-	VkSwapchainKHR swapChains[] = {swapchainWrapper->GetSwapchain()};
-	presentInfo.swapchainCount = 1;
-	presentInfo.pSwapchains = swapChains;
-	presentInfo.pImageIndices = &imageIndex;
-
-	presentInfo.pResults = nullptr; // Optional
-
-	vkCmdBindPipeline(graphicsCommands->commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeWrapper->GetCurrentPipe().graphicsPipeline);
-
-	vkQueuePresentKHR(queueWrapper->GetPresentQueue(), &presentInfo);
-
-	vkQueueWaitIdle(queueWrapper->GetPresentQueue());
-
-	vkCmdDraw(graphicsCommands->commandBuffers[imageIndex], 3, 1, 0, 0);
-}
-
-void Vulkan_Graphics::CreateFramebuffers()
-{
-	swapchainFramebuffers.resize(swapchainWrapper->GetImageViews().size());
-
-	for (size_t i = 0; i < swapchainWrapper->GetImageViews().size(); i++) {
-		VkImageView attachments[] = {
-			swapchainWrapper->GetImageViews()[i]
-		};
-
-		VkFramebufferCreateInfo framebufferInfo = {};
-		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = currentPipe.renderPass;
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = attachments;
-		framebufferInfo.width = swapchainWrapper->GetExtent().width;
-		framebufferInfo.height = swapchainWrapper->GetExtent().height;
-		framebufferInfo.layers = 1;
-
-		if (vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr, &swapchainFramebuffers[i]) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create framebuffer!");
+		if ((vkCreateSemaphore(logicalDevice, &semaphoreInfo, NULL, &imageAvailableSemaphores[i]) != VK_SUCCESS) ||
+			(vkCreateSemaphore(logicalDevice, &semaphoreInfo, NULL, &renderFinishedSemaphores[i]) != VK_SUCCESS) ||
+			(vkCreateFence(logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS))
+		{
+			slog("failed to create semaphores!");
+		}
+		else
+		{
+			slog("created semaphores!");
 		}
 	}
 }
-*/
 
 void Vulkan_Graphics::DrawFrame()
 {
+	vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
+	vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
 	//begin drawing frame
 	uint32_t imageIndex;
@@ -533,14 +400,14 @@ void Vulkan_Graphics::DrawFrame()
 	Pipeline *pipe = &pipeWrapper->GetCurrentPipe();
 	VkPresentInfoKHR presentInfo = {};
 	VkSubmitInfo submitInfo = {};
-	VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
-	VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
+	VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+	VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
 	vkAcquireNextImageKHR(logicalDevice,
 		swapchain,
 		std::numeric_limits<uint32_t>::max(),
-		imageAvailableSemaphore,
+		imageAvailableSemaphores[currentFrame],
 		VK_NULL_HANDLE,
 		&imageIndex);
 
@@ -571,7 +438,7 @@ void Vulkan_Graphics::DrawFrame()
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	if (vkQueueSubmit(queueWrapper->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+	if (vkQueueSubmit(queueWrapper->GetGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
 	{
 		slog("failed to submit draw command buffer!");
 	}
@@ -587,4 +454,8 @@ void Vulkan_Graphics::DrawFrame()
 	presentInfo.pResults = NULL; // Optional
 
 	vkQueuePresentKHR(queueWrapper->GetPresentQueue(), &presentInfo);
+
+	vkQueueWaitIdle(queueWrapper->GetPresentQueue());
+
+	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
