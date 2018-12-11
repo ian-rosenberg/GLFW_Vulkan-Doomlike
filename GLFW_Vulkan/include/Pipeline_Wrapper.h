@@ -34,13 +34,9 @@ private:
 	uint32_t				maxPipes;
 	std::vector<Pipeline>	pipelineList;
 
-	VkPipelineLayout		pipeLayout;
-
 	VkDevice				logicalDevice;
 
 	uint32_t				graphicsPipelineIndex;
-
-	VkRenderPass			activeRenderPass;
 
 public:
 	Pipeline_Wrapper();
@@ -59,6 +55,8 @@ public:
 	VkFormat FindSupportedFormat(VkFormat* candidates, uint32_t candidateCount, VkImageTiling tiling, VkFormatFeatureFlags features, VkPhysicalDevice physDevice);
 
 	Pipeline GetCurrentPipe() { return pipelineList[graphicsPipelineIndex]; }
+
+	VkPipelineLayout GetPipelineLayout() { return pipelineList[graphicsPipelineIndex].pipelineLayout; }
 
 	static std::vector<char> ReadShaderFile(const std::string& filename);
 };

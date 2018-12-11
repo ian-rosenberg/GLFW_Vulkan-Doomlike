@@ -27,4 +27,6 @@ public:
 	GLFWwindow* GetWindow() { return window; }
 
 	VkSurfaceKHR CreateGLFWWindowSurface(VkInstance instance);
+
+	static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 };

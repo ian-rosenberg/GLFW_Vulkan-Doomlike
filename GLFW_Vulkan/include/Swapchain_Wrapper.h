@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <vector>
 
+#include "GLFW_Wrapper.h"
 #include "Queue_Wrapper.h"
 #include "Pipeline_Wrapper.h"
 
@@ -34,11 +35,13 @@ private:
 
 	std::vector<VkFramebuffer>			frameBuffers;
 
+	GLFWwindow							*window;
+
 public:
 	Swapchain_Wrapper();
 	~Swapchain_Wrapper();
 
-	void SwapchainInit(VkPhysicalDevice device, VkDevice logicalDevice, VkSurfaceKHR surface, uint32_t width, uint32_t height, Queue_Wrapper *qWrapper);
+	void SwapchainInit(VkPhysicalDevice device, VkDevice logicalDevice, VkSurfaceKHR surface, uint32_t width, uint32_t height, Queue_Wrapper *qWrapper, GLFWwindow *win);
 
 	int ChooseFormat();
 
@@ -59,4 +62,6 @@ public:
 	void CreateFrameBuffers(Pipeline* pipe);
 
 	std::vector<VkFramebuffer> GetFrameBuffers(){ return frameBuffers; }
+
+	void CleanupSwapChain(VkCommandPool pool, std::vector<VkCommandBuffer> cmdBuffers, Pipeline_Wrapper *pipeWrapper);
 };

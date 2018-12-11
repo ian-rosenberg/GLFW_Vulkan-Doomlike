@@ -40,7 +40,7 @@ public:
 
 	void CreateCommandPool(uint32_t graphicsFamily, VkCommandPool *cmdPool);
 
-	void CreateCommandBuffers(std::vector<VkCommandBuffer> *theCmdBuffers, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkCommandPool cmdPool);
+	void CreateCommandBuffers(std::vector<VkCommandBuffer> *theCmdBuffers, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkCommandPool cmdPool, VkBuffer vertexBuffer);
 
 	void ResetCommandPool(Command *com);
 

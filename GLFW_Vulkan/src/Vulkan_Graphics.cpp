@@ -63,7 +63,7 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	PickPhysicalDevice();
 	CreateLogicalDevice(); 
 	queueWrapper->SetupDeviceQueues(logicalDevice);
-	swapchainWrapper->SwapchainInit(physicalDevice, logicalDevice, surface, glfwWrapper->GetWindowWidth(), glfwWrapper->GetWindowHeight(), queueWrapper);
+	swapchainWrapper->SwapchainInit(physicalDevice, logicalDevice, surface, glfwWrapper->GetWindowWidth(), glfwWrapper->GetWindowHeight(), queueWrapper, glfwWrapper->GetWindow());
 	
 	//following tutorial/DJ but using tutorial as basis for now, will add model stuff later
 
@@ -80,11 +80,16 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 
 	//graphicsCommands = cmdWrapper->GraphicsCommandPoolSetup(swapchainWrapper->GetFrameBuffers().size(), currentPipe, queueWrapper->GetGraphicsQueueFamily());
 	cmdWrapper->CreateCommandPool(queueWrapper->GetGraphicsQueueFamily(), &graphicsCommandPool);
-	cmdWrapper->CreateCommandBuffers(&graphicsCommandBuffers, swapchainWrapper->GetFrameBuffers().size(), swapchainWrapper->GetFrameBuffers(), &pipeWrapper->GetCurrentPipe(), swapchainWrapper->GetExtent(), graphicsCommandPool);
+
+	CreateVertexBuffers();
+
+	cmdWrapper->CreateCommandBuffers(&graphicsCommandBuffers, swapchainWrapper->GetFrameBuffers().size(), swapchainWrapper->GetFrameBuffers(), &pipeWrapper->GetCurrentPipe(), swapchainWrapper->GetExtent(), graphicsCommandPool, vertexBuffer);
 
 	CreateSemaphores();
 
 	currentFrame = 0;
+
+	framebufferResized = false;
 }
 
 void Vulkan_Graphics::SetupDebugCallback() 
@@ -142,6 +147,11 @@ Vulkan_Graphics::~Vulkan_Graphics()
 		vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
 		vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
 		vkDestroyFence(logicalDevice, inFlightFences[i], nullptr);
+	}
+
+	if (vertexBuffer)
+	{
+		vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
 	}
 
 	if (vkInstance)
@@ -391,9 +401,7 @@ void Vulkan_Graphics::CreateSemaphores()
 void Vulkan_Graphics::DrawFrame()
 {
 	vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
-	vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
-	//begin drawing frame
 	uint32_t imageIndex;
 	VkSwapchainKHR swapchain = swapchainWrapper->GetSwapchain();
 	VkCommandBuffer cmdBuffer;
@@ -411,21 +419,6 @@ void Vulkan_Graphics::DrawFrame()
 		VK_NULL_HANDLE,
 		&imageIndex);
 
-	//cmdBuffer = cmdWrapper->CommandBeginSingleTime(graphicsCommands);
-
-	//cmdWrapper->ConfigureRenderPass(cmdBuffer, 
-		//pipe->renderPass, 
-		//swapchainWrapper->GetFrameBuffers()[imageIndex], 
-		//pipe->graphicsPipeline,
-		//swapchainWrapper->GetExtent());
-
-
-
-	//end drawing frame
-	//cmdWrapper->ConfigureRenderPassEnd(cmdBuffer);
-	//cmdWrapper->CommandEndSingleTime(graphicsCommands, cmdBuffer, queueWrapper->GetGraphicsQueue(), logicalDevice);
-
-
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
 	submitInfo.waitSemaphoreCount = 1;
@@ -437,6 +430,8 @@ void Vulkan_Graphics::DrawFrame()
 
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
+
+	vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
 	if (vkQueueSubmit(queueWrapper->GetGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
 	{
@@ -453,9 +448,64 @@ void Vulkan_Graphics::DrawFrame()
 	presentInfo.pImageIndices = &imageIndex;
 	presentInfo.pResults = NULL; // Optional
 
-	vkQueuePresentKHR(queueWrapper->GetPresentQueue(), &presentInfo);
+	VkResult result = vkQueuePresentKHR(queueWrapper->GetPresentQueue(), &presentInfo);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
+	{
+		return;
+	}
+	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+	{
+		slog("failed to acquire swap chain image!");
+	}
 
 	vkQueueWaitIdle(queueWrapper->GetPresentQueue());
 
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void Vulkan_Graphics::CreateVertexBuffers()
+{
+	VkBufferCreateInfo bufferInfo = {};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = sizeof(vertices[0]) * vertices.size();
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	if (vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create vertex buffer!");
+	}
+
+	VkMemoryRequirements memRequirements;
+	vkGetBufferMemoryRequirements(logicalDevice, vertexBuffer, &memRequirements);
+
+	VkMemoryAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memRequirements.size;
+	allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate vertex buffer memory!");
+	}
+
+	vkBindBufferMemory(logicalDevice, vertexBuffer, vertexBufferMemory, 0);
+
+	void* data;
+	vkMapMemory(logicalDevice, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+	memcpy(data, vertices.data(), (size_t)bufferInfo.size);
+	vkUnmapMemory(logicalDevice, vertexBufferMemory);
+}
+
+uint32_t Vulkan_Graphics::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) 
+{
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+			return i;
+		}
+	}
+
+	slog("failed to find suitable memory type!");
 }

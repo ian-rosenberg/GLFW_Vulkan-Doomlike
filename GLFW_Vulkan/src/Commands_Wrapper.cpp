@@ -80,7 +80,7 @@ void Commands_Wrapper::CommandsWrapperInit(uint32_t count, VkDevice defaultDevic
 	return com;
 }*/
 
-void Commands_Wrapper::CreateCommandBuffers(std::vector<VkCommandBuffer> *theCmdBuffers, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkCommandPool cmdPool)
+void Commands_Wrapper::CreateCommandBuffers(std::vector<VkCommandBuffer> *theCmdBuffers, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkCommandPool cmdPool, VkBuffer vertexBuffer)
 {	
 	/*theCmdBuffers->commandBuffers.resize(swpchnFbs);
 	
@@ -160,13 +160,17 @@ void Commands_Wrapper::CreateCommandBuffers(std::vector<VkCommandBuffer> *theCmd
 		renderPassInfo.renderArea.offset = { 0, 0 };
 		renderPassInfo.renderArea.extent = extents;
 
-		VkClearValue clearColor = { 0.0f, .5f, 0.0f, 1.0f };
+		VkClearValue clearColor = { 0.7f, .5f, 0.125f, 1.0f };
 		renderPassInfo.clearValueCount = 1;
 		renderPassInfo.pClearValues = &clearColor;
 
 		vkCmdBeginRenderPass((*theCmdBuffers)[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 		vkCmdBindPipeline((*theCmdBuffers)[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->graphicsPipeline);
+
+		VkBuffer vertexBuffers[] = { vertexBuffer };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers((*theCmdBuffers)[i], 0, 1, vertexBuffers, offsets);
 
 		vkCmdDraw((*theCmdBuffers)[i], 3, 1, 0, 0);
 

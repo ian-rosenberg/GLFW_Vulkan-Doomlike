@@ -40,8 +40,10 @@ Swapchain_Wrapper::~Swapchain_Wrapper()
 
 }
 
-void Swapchain_Wrapper::SwapchainInit(VkPhysicalDevice device, VkDevice logicalDevice, VkSurfaceKHR surface, uint32_t width, uint32_t height, Queue_Wrapper *qWrapper)
+void Swapchain_Wrapper::SwapchainInit(VkPhysicalDevice device, VkDevice logicalDevice, VkSurfaceKHR surface, uint32_t width, uint32_t height, Queue_Wrapper *qWrapper, GLFWwindow *win)
 {	
+	window = win;
+	
 	uint32_t formatCount = 0;
 	uint32_t presentModeCount = 0;
 	
@@ -134,16 +136,25 @@ int Swapchain_Wrapper::GetPresentationMode()
 
 VkExtent2D Swapchain_Wrapper::ConfigureExtent(int width, int height)
 {
-	VkExtent2D actual;
+	if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) 
+	{
+		return capabilities.currentExtent;
+	}
+	else
+	{
+		VkExtent2D actual = {};
 
-	slog("Requested resolution: %i x %i", width, height);
-	slog("Minimum resolution: %i x %i", capabilities.minImageExtent.width, capabilities.minImageExtent.height);
-	slog("Maximum resolution: %i x %i", capabilities.maxImageExtent.width, capabilities.maxImageExtent.height);
+		glfwGetFramebufferSize(window, &width, &height);
 
-	actual.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actual.width));
-	actual.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actual.height));
+		slog("Requested resolution: %i x %i", width, height);
+		slog("Minimum resolution: %i x %i", capabilities.minImageExtent.width, capabilities.minImageExtent.height);
+		slog("Maximum resolution: %i x %i", capabilities.maxImageExtent.width, capabilities.maxImageExtent.height);
 
-	return actual;
+		actual.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actual.width));
+		actual.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actual.height));
+
+		return actual;
+	}
 }
 
 void Swapchain_Wrapper::CreateSwapchain(VkDevice lDevice, VkSurfaceKHR surface, Queue_Wrapper *qWrapper)
@@ -278,4 +289,24 @@ void Swapchain_Wrapper::CreateFrameBuffers(Pipeline* pipe)
 			throw std::runtime_error("failed to create framebuffer!");
 		}
 	}
+}
+
+void Swapchain_Wrapper::CleanupSwapChain(VkCommandPool pool, std::vector<VkCommandBuffer> cmdBuffers, Pipeline_Wrapper *pipeWrapper) 
+{
+	for (size_t i = 0; i < frameBuffers.size(); i++) {
+		vkDestroyFramebuffer(logDevice, frameBuffers[i], nullptr);
+	}
+
+	vkFreeCommandBuffers(logDevice, pool, static_cast<uint32_t>(cmdBuffers.size()), cmdBuffers.data());
+
+	vkDestroyPipeline(logDevice, pipeWrapper->GetCurrentPipe().graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(logDevice, pipeWrapper->GetPipelineLayout(), nullptr);
+	vkDestroyRenderPass(logDevice, pipeWrapper->GetCurrentPipe().renderPass, nullptr);
+
+
+	for (size_t i = 0; i < imageViews.size(); i++) {
+		vkDestroyImageView(logDevice, imageViews[i], nullptr);
+	}
+
+	vkDestroySwapchainKHR(logDevice, swapchain, nullptr);
 }

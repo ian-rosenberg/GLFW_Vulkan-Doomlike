@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "Vulkan_Graphics.h"
 #include "GLFW_Wrapper.h"
 #include "simple_logger.h"
 
@@ -29,10 +30,11 @@ void GLFW_Wrapper::CreateWindow(char* appName, uint32_t renderWidth, uint32_t re
 	}
 		
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 	window = glfwCreateWindow(renderWidth, renderHeight, appName, NULL, NULL);
-	
+	glfwSetWindowUserPointer(window, this);
+	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+
 	if (!window)
 	{
 		slog("Window creation failed");
@@ -55,4 +57,9 @@ GLFW_Wrapper::~GLFW_Wrapper()
 	glfwDestroyWindow(window);
 	
 	glfwTerminate();
+}
+
+void GLFW_Wrapper::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+	auto app = reinterpret_cast<Vulkan_Graphics*>(glfwGetWindowUserPointer(window));
+	app->framebufferResized = true;
 }
