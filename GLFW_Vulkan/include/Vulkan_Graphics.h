@@ -19,9 +19,6 @@ private:
 
 	Command             			*graphicsCommands;
 
-	VkCommandPool					graphicsCommandPool;
-	std::vector<VkCommandBuffer>	graphicsCommandBuffers;
-
 	VkDebugUtilsMessengerEXT		callback;
 	VkSurfaceKHR					surface;
 	
@@ -43,12 +40,11 @@ private:
 	std::vector<VkFence>			inFlightFences;
 	size_t							currentFrame;
 
-	VkBuffer						vertexBuffer;
-	VkDeviceMemory					vertexBufferMemory;
-
 	std::vector<VkLayerProperties>	validationAvailableLayers;
 	std::vector<const char*>		validationInstanceLayerNames;
 	std::vector<const char*>		validationDeviceLayerNames;
+
+	Command 						stagingCommand;
 
 
 	void CreateVulkanInstance();
@@ -70,10 +66,6 @@ private:
 	
 	bool IsDeviceSuitable(VkPhysicalDevice device);
 
-	void CreateVertexBuffers();
-
-	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-
 public:
 
 	bool							framebufferResized;
@@ -84,6 +76,7 @@ public:
 	Queue_Wrapper					*queueWrapper;
 	Swapchain_Wrapper				*swapchainWrapper;
 	Pipeline_Wrapper				*pipeWrapper;
+	Buffer_Wrapper					*bufferWrapper;
 	
 	Vulkan_Graphics(GLFW_Wrapper *glfwWrapper, bool enableValidation);
 	~Vulkan_Graphics();

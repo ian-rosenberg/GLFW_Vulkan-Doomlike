@@ -80,29 +80,29 @@ void Commands_Wrapper::CommandsWrapperInit(uint32_t count, VkDevice defaultDevic
 	return com;
 }*/
 
-void Commands_Wrapper::CreateCommandBuffers(std::vector<VkCommandBuffer> *theCmdBuffers, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkCommandPool cmdPool, VkBuffer vertexBuffer)
+void Commands_Wrapper::CreateCommandBuffers(Command *cmd, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkBuffer vertexBuffer)
 {	
-	/*theCmdBuffers->commandBuffers.resize(swpchnFbs);
+	/*cmd->commandBuffers.commandBuffers.resize(swpchnFbs);
 	
 	VkCommandBufferAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.commandPool = theCmdBuffers->commandPool;
+	allocInfo.commandPool = cmd->commandBuffers.commandPool;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandBufferCount = (uint32_t) theCmdBuffers->commandBuffers.size();
-	theCmdBuffers->commandBufferCount = (uint32_t)theCmdBuffers->commandBuffers.size();
+	allocInfo.commandBufferCount = (uint32_t) cmd->commandBuffers.commandBuffers.size();
+	cmd->commandBuffers.commandBufferCount = (uint32_t)cmd->commandBuffers.commandBuffers.size();
 
-	if (vkAllocateCommandBuffers(device, &allocInfo, theCmdBuffers->commandBuffers.data()) != VK_SUCCESS) {
+	if (vkAllocateCommandBuffers(device, &allocInfo, cmd->commandBuffers.commandBuffers.data()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate command buffers!");
 	}
 
-	for (size_t i = 0; i < theCmdBuffers->commandBuffers.size(); i++) 
+	for (size_t i = 0; i < cmd->commandBuffers.commandBuffers.size(); i++) 
 	{
 		VkCommandBufferBeginInfo beginInfo = {};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 		beginInfo.pInheritanceInfo = nullptr; // Optional
 
-		if (vkBeginCommandBuffer(theCmdBuffers->commandBuffers[i], &beginInfo) != VK_SUCCESS)
+		if (vkBeginCommandBuffer(cmd->commandBuffers.commandBuffers[i], &beginInfo) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to begin recording command buffer!");
 		}
@@ -118,38 +118,38 @@ void Commands_Wrapper::CreateCommandBuffers(std::vector<VkCommandBuffer> *theCmd
 		renderPassInfo.clearValueCount = 1;
 		renderPassInfo.pClearValues = &clearColor;
 
-		vkCmdBeginRenderPass(theCmdBuffers->commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBeginRenderPass(cmd->commandBuffers.commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-		vkCmdBindPipeline(theCmdBuffers->commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->graphicsPipeline);
+		vkCmdBindPipeline(cmd->commandBuffers.commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->graphicsPipeline);
 
-		vkCmdDraw(theCmdBuffers->commandBuffers[i], 3, 1, 0, 0);
+		vkCmdDraw(cmd->commandBuffers.commandBuffers[i], 3, 1, 0, 0);cmd->commandBuffers->commandBuffers
 
-		vkCmdEndRenderPass(theCmdBuffers->commandBuffers[i]);
+		vkCmdEndRenderPass(cmd->commandBuffers.commandBuffers[i]);
 
-		if (vkEndCommandBuffer(theCmdBuffers->commandBuffers[i]) != VK_SUCCESS)
+		if (vkEndCommandBuffer(cmd->commandBuffers.commandBuffers[i]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to record command buffer!");
 		}
 	}*/
 
-	theCmdBuffers->resize(swpchnFbs);
+	cmd->commandBuffers.resize(swpchnFbs);
 
 	VkCommandBufferAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.commandPool = cmdPool;
+	allocInfo.commandPool = cmd->commandPool;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandBufferCount = (uint32_t)theCmdBuffers->size();
+	allocInfo.commandBufferCount = (uint32_t)cmd->commandBuffers.size();
 
-	if (vkAllocateCommandBuffers(device, &allocInfo, theCmdBuffers->data()) != VK_SUCCESS) {
+	if (vkAllocateCommandBuffers(device, &allocInfo, cmd->commandBuffers.data()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate command buffers!");
 	}
 
-	for (size_t i = 0; i < theCmdBuffers->size(); i++) {
+	for (size_t i = 0; i < cmd->commandBuffers.size(); i++) {
 		VkCommandBufferBeginInfo beginInfo = {};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
-		if (vkBeginCommandBuffer((*theCmdBuffers)[i], &beginInfo) != VK_SUCCESS) {
+		if (vkBeginCommandBuffer(cmd->commandBuffers[i], &beginInfo) != VK_SUCCESS) {
 			throw std::runtime_error("failed to begin recording command buffer!");
 		}
 
@@ -164,39 +164,39 @@ void Commands_Wrapper::CreateCommandBuffers(std::vector<VkCommandBuffer> *theCmd
 		renderPassInfo.clearValueCount = 1;
 		renderPassInfo.pClearValues = &clearColor;
 
-		vkCmdBeginRenderPass((*theCmdBuffers)[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBeginRenderPass(cmd->commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-		vkCmdBindPipeline((*theCmdBuffers)[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->graphicsPipeline);
+		vkCmdBindPipeline(cmd->commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->graphicsPipeline);
 
 		VkBuffer vertexBuffers[] = { vertexBuffer };
 		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers((*theCmdBuffers)[i], 0, 1, vertexBuffers, offsets);
+		vkCmdBindVertexBuffers(cmd->commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-		vkCmdDraw((*theCmdBuffers)[i], 3, 1, 0, 0);
+		vkCmdDraw(cmd->commandBuffers[i], 3, 1, 0, 0);
 
-		vkCmdEndRenderPass((*theCmdBuffers)[i]);
+		vkCmdEndRenderPass(cmd->commandBuffers[i]);
 
-		if (vkEndCommandBuffer((*theCmdBuffers)[i]) != VK_SUCCESS) {
+		if (vkEndCommandBuffer(cmd->commandBuffers[i]) != VK_SUCCESS) {
 			throw std::runtime_error("failed to record command buffer!");
 		}
 	}
 }
 
-void Commands_Wrapper::CreateCommandPool(uint32_t graphicsFamily, VkCommandPool *cmdPool)
+Command* Commands_Wrapper::CreateCommandPool(uint32_t graphicsFamily, VkCommandPoolCreateFlags flags)
 {
-	//NewCommandPool();
+	Command *cmd = NewCommandPool();
 	
 	VkCommandPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	poolInfo.queueFamilyIndex = graphicsFamily;
-	poolInfo.flags = 0; // Optional
+	poolInfo.flags = flags; // Optional
 
-	if (vkCreateCommandPool(device, &poolInfo, nullptr, cmdPool) != VK_SUCCESS) {
+	if (vkCreateCommandPool(device, &poolInfo, nullptr, &cmd->commandPool) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create command pool!");
 	}
 
 
-	//return &commandList[graphicsCommandIndex];
+	return cmd;
 }
 
 void Commands_Wrapper::ResetCommandPool(Command *com)
@@ -239,6 +239,10 @@ Command* Commands_Wrapper::NewCommandPool()
 			if (graphicsCommandIndex < 0)
 			{
 				graphicsCommandIndex = i;
+			}
+			else if (stagingCommandBufferIndex < 0)
+			{
+				stagingCommandBufferIndex = i;
 			}
 
 			return &commandList[i];

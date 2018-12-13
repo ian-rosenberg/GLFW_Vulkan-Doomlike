@@ -51,11 +51,11 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	swapchainWrapper = new Swapchain_Wrapper();
 	pipeWrapper = new Pipeline_Wrapper();
 	cmdWrapper = new Commands_Wrapper();
+	bufferWrapper = new Buffer_Wrapper();
 	glfwWrapper = gWrapper;
 	enableValidationLayers = enableValidation;
 	validationDeviceLayerNames = {};
-	graphicsCommandPool = VK_NULL_HANDLE;
-	graphicsCommandBuffers = {};
+
 	
 	CreateVulkanInstance();
 	surface = glfwWrapper->CreateGLFWWindowSurface(vkInstance);
@@ -79,17 +79,19 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	cmdWrapper->CommandsWrapperInit(8, logicalDevice);
 
 	//graphicsCommands = cmdWrapper->GraphicsCommandPoolSetup(swapchainWrapper->GetFrameBuffers().size(), currentPipe, queueWrapper->GetGraphicsQueueFamily());
-	cmdWrapper->CreateCommandPool(queueWrapper->GetGraphicsQueueFamily(), &graphicsCommandPool);
+	graphicsCommands = cmdWrapper->CreateCommandPool(queueWrapper->GetGraphicsQueueFamily(), 0);
 
-	CreateVertexBuffers();
+	stagingCommand = *(cmdWrapper->CreateCommandPool(queueWrapper->GetGraphicsQueueFamily(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT));
 
-	cmdWrapper->CreateCommandBuffers(&graphicsCommandBuffers, swapchainWrapper->GetFrameBuffers().size(), swapchainWrapper->GetFrameBuffers(), &pipeWrapper->GetCurrentPipe(), swapchainWrapper->GetExtent(), graphicsCommandPool, vertexBuffer);
+	bufferWrapper->BufferInit(logicalDevice, physicalDevice, queueWrapper->GetGraphicsQueue());
+
+	bufferWrapper->CreateVertexBuffers(&stagingCommand);
+
+	cmdWrapper->CreateCommandBuffers(graphicsCommands, swapchainWrapper->GetFrameBuffers().size(), swapchainWrapper->GetFrameBuffers(), &pipeWrapper->GetCurrentPipe(), swapchainWrapper->GetExtent(), bufferWrapper->GetVertexBuffer());
 
 	CreateSemaphores();
 
 	currentFrame = 0;
-
-	framebufferResized = false;
 }
 
 void Vulkan_Graphics::SetupDebugCallback() 
@@ -142,16 +144,15 @@ Vulkan_Graphics::~Vulkan_Graphics()
 		swapchainWrapper->~Swapchain_Wrapper();
 	}
 
+	vkDestroyBuffer(logicalDevice, bufferWrapper->GetVertexBuffer(), nullptr);
+
+	vkFreeMemory(logicalDevice, bufferWrapper->GetVertexBufferMemory(), nullptr);
+
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
 		vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
 		vkDestroyFence(logicalDevice, inFlightFences[i], nullptr);
-	}
-
-	if (vertexBuffer)
-	{
-		vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
 	}
 
 	if (vkInstance)
@@ -425,9 +426,8 @@ void Vulkan_Graphics::DrawFrame()
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
-	submitInfo.commandBufferCount = 1;// cmdWrapper->GetUsedBufferCount(graphicsCommands);
-	submitInfo.pCommandBuffers = &graphicsCommandBuffers[imageIndex];
-
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &graphicsCommands->commandBuffers[imageIndex];
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -462,50 +462,4 @@ void Vulkan_Graphics::DrawFrame()
 	vkQueueWaitIdle(queueWrapper->GetPresentQueue());
 
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
-
-void Vulkan_Graphics::CreateVertexBuffers()
-{
-	VkBufferCreateInfo bufferInfo = {};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = sizeof(vertices[0]) * vertices.size();
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-	if (vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create vertex buffer!");
-	}
-
-	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(logicalDevice, vertexBuffer, &memRequirements);
-
-	VkMemoryAllocateInfo allocInfo = {};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS) {
-		throw std::runtime_error("failed to allocate vertex buffer memory!");
-	}
-
-	vkBindBufferMemory(logicalDevice, vertexBuffer, vertexBufferMemory, 0);
-
-	void* data;
-	vkMapMemory(logicalDevice, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-	memcpy(data, vertices.data(), (size_t)bufferInfo.size);
-	vkUnmapMemory(logicalDevice, vertexBufferMemory);
-}
-
-uint32_t Vulkan_Graphics::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) 
-{
-	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-			return i;
-		}
-	}
-
-	slog("failed to find suitable memory type!");
 }

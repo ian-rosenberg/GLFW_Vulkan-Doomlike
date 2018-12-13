@@ -28,6 +28,7 @@ private:
 	uint32_t					max_commands;
 	VkDevice					device;
 	int							graphicsCommandIndex;
+	int							stagingCommandBufferIndex;
 public:
 	Commands_Wrapper();
 	~Commands_Wrapper();
@@ -38,13 +39,14 @@ public:
 
 	//Command* GraphicsCommandPoolSetup(uint32_t count, Pipeline *pipe, uint32_t graphicsFamily);
 
-	void CreateCommandPool(uint32_t graphicsFamily, VkCommandPool *cmdPool);
+	Command* CreateCommandPool(uint32_t graphicsFamily, VkCommandPoolCreateFlags flags);
 
-	void CreateCommandBuffers(std::vector<VkCommandBuffer> *theCmdBuffers, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkCommandPool cmdPool, VkBuffer vertexBuffer);
+	void CreateCommandBuffers(Command *cmd, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkBuffer vertexBuffer);
 
 	void ResetCommandPool(Command *com);
 
 	std::vector<VkCommandBuffer> GetGraphicsBuffer(){ return commandList[graphicsCommandIndex].commandBuffers; }
+	std::vector<VkCommandBuffer> GetVertexBuffer(){ return commandList[stagingCommandBufferIndex].commandBuffers; }
 	VkCommandBuffer* GetCommandBuffers(uint32_t index){ return commandList[index].commandBuffers.data(); }
 	uint32_t GetUsedBufferCount(Command *com){ return !com ? com->commandBufferNext : 0; }
 	VkCommandBuffer* GetUsedCommandBuffers(Command *com);

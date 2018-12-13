@@ -5,6 +5,8 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
+#include "Commands_Wrapper.h"
+
 struct Vertex {
 	glm::vec2 pos;
 	glm::vec3 color;
@@ -13,7 +15,7 @@ struct Vertex {
 const std::vector<Vertex> vertices = {
 	{ { 0.0f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
 	{ { 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f } },
-	{ { -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } }
+	{ { -0.75f, 0.5f }, { 1.0f, 1.0f, 1.0f } }
 };
 
 static VkVertexInputBindingDescription GetBindingDescription()
@@ -42,4 +44,30 @@ static std::array<VkVertexInputAttributeDescription, 2> GetAttributeDescriptions
 
 	return attributeDescriptions;
 }
+
+class Buffer_Wrapper
+{
+private:
+	VkDevice				logicalDevice;
+	VkPhysicalDevice		physicalDevice;
+
+	VkBuffer				vertexBuffer;
+	VkDeviceMemory			vertexBufferMemory;
+
+	VkQueue					graphicsQueue;
+
+public:
+	void BufferInit(VkDevice logDevice, VkPhysicalDevice physDevice, VkQueue gQueue);
+
+	void CreateVertexBuffers(Command* cmd);
+
+	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+
+	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool pool);
+
+	VkBuffer GetVertexBuffer(){ return vertexBuffer; }
+	VkDeviceMemory GetVertexBufferMemory() { return vertexBufferMemory; }
+
+	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+};
 
