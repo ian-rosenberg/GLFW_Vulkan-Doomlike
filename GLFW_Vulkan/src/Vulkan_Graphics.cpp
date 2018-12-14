@@ -86,8 +86,9 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	bufferWrapper->BufferInit(logicalDevice, physicalDevice, queueWrapper->GetGraphicsQueue());
 
 	bufferWrapper->CreateVertexBuffers(&stagingCommand);
+	bufferWrapper->CreateIndexBuffers(&stagingCommand);
 
-	cmdWrapper->CreateCommandBuffers(graphicsCommands, swapchainWrapper->GetFrameBuffers().size(), swapchainWrapper->GetFrameBuffers(), &pipeWrapper->GetCurrentPipe(), swapchainWrapper->GetExtent(), bufferWrapper->GetVertexBuffer());
+	cmdWrapper->CreateCommandBuffers(graphicsCommands, swapchainWrapper->GetFrameBuffers().size(), swapchainWrapper->GetFrameBuffers(), &pipeWrapper->GetCurrentPipe(), swapchainWrapper->GetExtent(), bufferWrapper->GetVertexBuffer(), bufferWrapper->GetIndexBuffer());
 
 	CreateSemaphores();
 
@@ -144,9 +145,10 @@ Vulkan_Graphics::~Vulkan_Graphics()
 		swapchainWrapper->~Swapchain_Wrapper();
 	}
 
-	vkDestroyBuffer(logicalDevice, bufferWrapper->GetVertexBuffer(), nullptr);
-
-	vkFreeMemory(logicalDevice, bufferWrapper->GetVertexBufferMemory(), nullptr);
+	if (bufferWrapper)
+	{
+		bufferWrapper->~Buffer_Wrapper();
+	}
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
@@ -405,7 +407,6 @@ void Vulkan_Graphics::DrawFrame()
 
 	uint32_t imageIndex;
 	VkSwapchainKHR swapchain = swapchainWrapper->GetSwapchain();
-	VkCommandBuffer cmdBuffer;
 	Pipeline *pipe = &pipeWrapper->GetCurrentPipe();
 	VkPresentInfoKHR presentInfo = {};
 	VkSubmitInfo submitInfo = {};

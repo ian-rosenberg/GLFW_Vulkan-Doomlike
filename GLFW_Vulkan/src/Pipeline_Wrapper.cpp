@@ -248,7 +248,7 @@ void Pipeline_Wrapper::RenderPassSetup(VkFormat format, VkPhysicalDevice physDev
 
 VkFormat Pipeline_Wrapper::FindSupportedFormat(VkFormat * candidates, uint32_t candidateCount, VkImageTiling tiling, VkFormatFeatureFlags features, VkPhysicalDevice physDevice)
 {
-	VkFormat empty;
+	VkFormat empty = {};
 	
 	VkFormatProperties props = {};
 	for (int i = 0; i < candidateCount; i++)

@@ -1,6 +1,15 @@
 #include "Buffers.h"
 #include "simple_logger.h"
 
+Buffer_Wrapper::~Buffer_Wrapper()
+{
+	vkDestroyBuffer(logicalDevice, indexBuffer, nullptr);
+	vkFreeMemory(logicalDevice, indexBufferMemory, nullptr);
+	
+	vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
+	vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
+}
+
 void Buffer_Wrapper::BufferInit(VkDevice logDevice, VkPhysicalDevice physDevice, VkQueue gQueue)
 {
 	logicalDevice = logDevice;
@@ -29,6 +38,27 @@ void Buffer_Wrapper::CreateVertexBuffers(Command* cmd)
 	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 }
 
+void Buffer_Wrapper::CreateIndexBuffers(Command* cmd)
+{
+	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, indices.data(), (size_t)bufferSize);
+	vkUnmapMemory(logicalDevice, stagingBufferMemory);
+
+	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+
+	CopyBuffer(stagingBuffer, indexBuffer, bufferSize, cmd->commandPool);
+
+	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+}
+
 uint32_t Buffer_Wrapper::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) 
 {
 	VkPhysicalDeviceMemoryProperties memProperties;
@@ -41,6 +71,7 @@ uint32_t Buffer_Wrapper::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFla
 	}
 
 	slog("failed to find suitable memory type!");
+	return VK_NULL_HANDLE;
 }
 
 void Buffer_Wrapper::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)

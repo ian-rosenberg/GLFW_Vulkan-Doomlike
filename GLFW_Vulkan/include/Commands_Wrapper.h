@@ -41,7 +41,7 @@ public:
 
 	Command* CreateCommandPool(uint32_t graphicsFamily, VkCommandPoolCreateFlags flags);
 
-	void CreateCommandBuffers(Command *cmd, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkBuffer vertexBuffer);
+	void CreateCommandBuffers(Command *cmd, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkBuffer vertexBuffer, VkBuffer indexBuffer);
 
 	void ResetCommandPool(Command *com);
 

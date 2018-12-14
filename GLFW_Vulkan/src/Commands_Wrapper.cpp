@@ -1,4 +1,5 @@
 #include "Commands_Wrapper.h"
+#include "Buffers.h"
 #include "simple_logger.h"
 
 Commands_Wrapper::Commands_Wrapper()
@@ -80,7 +81,7 @@ void Commands_Wrapper::CommandsWrapperInit(uint32_t count, VkDevice defaultDevic
 	return com;
 }*/
 
-void Commands_Wrapper::CreateCommandBuffers(Command *cmd, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkBuffer vertexBuffer)
+void Commands_Wrapper::CreateCommandBuffers(Command *cmd, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkBuffer vertexBuffer, VkBuffer indexBuffer)
 {	
 	/*cmd->commandBuffers.commandBuffers.resize(swpchnFbs);
 	
@@ -172,7 +173,10 @@ void Commands_Wrapper::CreateCommandBuffers(Command *cmd, uint32_t swpchnFbs, st
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(cmd->commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-		vkCmdDraw(cmd->commandBuffers[i], 3, 1, 0, 0);
+		vkCmdBindIndexBuffer(cmd->commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+
+		vkCmdDrawIndexed(cmd->commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(cmd->commandBuffers[i]);
 

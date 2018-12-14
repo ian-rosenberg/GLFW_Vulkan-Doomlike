@@ -13,9 +13,14 @@ struct Vertex {
 };
 
 const std::vector<Vertex> vertices = {
-	{ { 0.0f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
-	{ { 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f } },
-	{ { -0.75f, 0.5f }, { 1.0f, 1.0f, 1.0f } }
+	{ { -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
+	{ { 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } },
+	{ { 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } },
+	{ { -0.5f, 0.5f }, { 1.0f, 1.0f, 1.0f } }
+};
+
+const std::vector<uint16_t> indices = {
+	0, 1, 2, 2, 3, 0
 };
 
 static VkVertexInputBindingDescription GetBindingDescription()
@@ -53,13 +58,19 @@ private:
 
 	VkBuffer				vertexBuffer;
 	VkDeviceMemory			vertexBufferMemory;
+	VkBuffer				indexBuffer;
+	VkDeviceMemory			indexBufferMemory;
 
 	VkQueue					graphicsQueue;
 
 public:
+	~Buffer_Wrapper();
+	
 	void BufferInit(VkDevice logDevice, VkPhysicalDevice physDevice, VkQueue gQueue);
 
-	void CreateVertexBuffers(Command* cmd);
+	void CreateVertexBuffers(Command *cmd);
+
+	void CreateIndexBuffers(Command *cmd);
 
 	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
@@ -67,6 +78,7 @@ public:
 
 	VkBuffer GetVertexBuffer(){ return vertexBuffer; }
 	VkDeviceMemory GetVertexBufferMemory() { return vertexBufferMemory; }
+	VkBuffer GetIndexBuffer(){ return indexBuffer; }
 
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 };
