@@ -81,7 +81,7 @@ void Commands_Wrapper::CommandsWrapperInit(uint32_t count, VkDevice defaultDevic
 	return com;
 }*/
 
-void Commands_Wrapper::CreateCommandBuffers(Command *cmd, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkBuffer vertexBuffer, VkBuffer indexBuffer)
+void Commands_Wrapper::CreateCommandBuffers(Command *cmd, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkBuffer vertexBuffer, VkBuffer indexBuffer, std::vector<VkDescriptorSet> descriptorSets)
 {	
 	/*cmd->commandBuffers.commandBuffers.resize(swpchnFbs);
 	
@@ -175,6 +175,7 @@ void Commands_Wrapper::CreateCommandBuffers(Command *cmd, uint32_t swpchnFbs, st
 
 		vkCmdBindIndexBuffer(cmd->commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
+		vkCmdBindDescriptorSets(cmd->commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
 		vkCmdDrawIndexed(cmd->commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 

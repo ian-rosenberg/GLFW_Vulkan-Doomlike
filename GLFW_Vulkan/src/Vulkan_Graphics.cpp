@@ -1,3 +1,11 @@
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/trigonometric.hpp>
+#include <chrono>
+
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "Vulkan_Graphics.h"
 #include "simple_logger.h"
 
@@ -44,7 +52,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 static std::vector<const char*> instanceExtensionNames = {};
 
 Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
-{
+{	
 	vkInstance = VK_NULL_HANDLE;
 	extManager = new Extensions_Manager();
 	queueWrapper = new Queue_Wrapper();
@@ -67,11 +75,15 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	
 	//following tutorial/DJ but using tutorial as basis for now, will add model stuff later
 
+	bufferWrapper->BufferInit(logicalDevice, physicalDevice, queueWrapper->GetGraphicsQueue(), swapchainWrapper->GetSwapchainImages());
+
+	bufferWrapper->CreateDescriptorSetLayout();
+
 	pipeWrapper->Pipeline_WrapperInit(4);
 
 	//pipeWrapper->RenderPassSetup(swapchainWrapper->GetFormat(), physicalDevice, logicalDevice);
 
-	pipeWrapper->PipelineLoad(logicalDevice, "shaders/vert.spv", "shaders/frag.spv", swapchainWrapper->GetFormat(), physicalDevice, swapchainWrapper->GetExtent());
+	pipeWrapper->PipelineLoad(logicalDevice, "shaders/vert.spv", "shaders/frag.spv", swapchainWrapper->GetFormat(), physicalDevice, swapchainWrapper->GetExtent(), bufferWrapper->GetDescriptorSetLayout());
 
 	//swapchainWrapper->SetupFramebuffers(pipeWrapper->GetPipe());
 	swapchainWrapper->CreateFrameBuffers(&pipeWrapper->GetCurrentPipe());
@@ -83,12 +95,15 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 
 	stagingCommand = *(cmdWrapper->CreateCommandPool(queueWrapper->GetGraphicsQueueFamily(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT));
 
-	bufferWrapper->BufferInit(logicalDevice, physicalDevice, queueWrapper->GetGraphicsQueue());
+	bufferWrapper->CreateVertexBuffers(graphicsCommands->commandPool);
+	bufferWrapper->CreateIndexBuffers(graphicsCommands->commandPool);
+	bufferWrapper->CreateUniformBuffers();
 
-	bufferWrapper->CreateVertexBuffers(&stagingCommand);
-	bufferWrapper->CreateIndexBuffers(&stagingCommand);
+	bufferWrapper->CreateDescriptorSetLayout();
+	bufferWrapper->CreateDescriptorPool();
+	bufferWrapper->CreateDescriptorSets();
 
-	cmdWrapper->CreateCommandBuffers(graphicsCommands, swapchainWrapper->GetFrameBuffers().size(), swapchainWrapper->GetFrameBuffers(), &pipeWrapper->GetCurrentPipe(), swapchainWrapper->GetExtent(), bufferWrapper->GetVertexBuffer(), bufferWrapper->GetIndexBuffer());
+	cmdWrapper->CreateCommandBuffers(graphicsCommands, swapchainWrapper->GetFrameBuffers().size(), swapchainWrapper->GetFrameBuffers(), &pipeWrapper->GetCurrentPipe(), swapchainWrapper->GetExtent(), bufferWrapper->GetVertexBuffer(), bufferWrapper->GetIndexBuffer(), bufferWrapper->GetDescriptorSets());
 
 	CreateSemaphores();
 
@@ -421,6 +436,8 @@ void Vulkan_Graphics::DrawFrame()
 		VK_NULL_HANDLE,
 		&imageIndex);
 
+	UpdateUniformBuffer(imageIndex);
+
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
 	submitInfo.waitSemaphoreCount = 1;
@@ -451,7 +468,7 @@ void Vulkan_Graphics::DrawFrame()
 
 	VkResult result = vkQueuePresentKHR(queueWrapper->GetPresentQueue(), &presentInfo);
 
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
 	{
 		return;
 	}
@@ -464,3 +481,23 @@ void Vulkan_Graphics::DrawFrame()
 
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
+
+void Vulkan_Graphics::UpdateUniformBuffer(uint32_t imageIndex)
+{
+	static auto startTime = std::chrono::high_resolution_clock::now();
+
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+
+	UniformBufferObject ubo = {};
+	ubo.model = glm::rotate(glm::mat4(1.0f), (time * glm::radians(90.0f)), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.proj = glm::perspective(glm::radians(45.0f), swapchainWrapper->GetExtent().width / (float)swapchainWrapper->GetExtent().height, 0.1f, 10.0f);
+	ubo.proj[1][1] *= -1;
+
+	void* data;
+	vkMapMemory(logicalDevice, bufferWrapper->GetUniformBuffersMemory()[imageIndex], 0, sizeof(ubo), 0, &data);
+	memcpy(data, &ubo, sizeof(ubo));
+	vkUnmapMemory(logicalDevice, bufferWrapper->GetUniformBuffersMemory()[imageIndex]);
+} 

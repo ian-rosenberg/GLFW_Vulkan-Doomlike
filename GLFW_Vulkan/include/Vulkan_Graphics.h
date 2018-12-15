@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include <vector>
 #include <iostream>
 #include <array>
 
@@ -67,9 +68,6 @@ private:
 	bool IsDeviceSuitable(VkPhysicalDevice device);
 
 public:
-
-	bool							framebufferResized;
-	
 	GLFW_Wrapper					*glfwWrapper;
 	Commands_Wrapper				*cmdWrapper;
 	Extensions_Manager				*extManager;
@@ -86,4 +84,6 @@ public:
 
 	//testing
 	void DrawFrame();
+
+	void UpdateUniformBuffer(uint32_t imageIndex);
 };

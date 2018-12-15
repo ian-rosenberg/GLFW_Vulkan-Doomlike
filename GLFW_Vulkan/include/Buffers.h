@@ -1,9 +1,7 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <glm/mat4x4.hpp>
 #include <array>
-#include <vector>
-#include <vulkan/vulkan.h>
 
 #include "Commands_Wrapper.h"
 
@@ -21,6 +19,12 @@ const std::vector<Vertex> vertices = {
 
 const std::vector<uint16_t> indices = {
 	0, 1, 2, 2, 3, 0
+};
+
+struct UniformBufferObject {
+	glm::mat4 model;
+	glm::mat4 view;
+	glm::mat4 proj;
 };
 
 static VkVertexInputBindingDescription GetBindingDescription()
@@ -53,24 +57,41 @@ static std::array<VkVertexInputAttributeDescription, 2> GetAttributeDescriptions
 class Buffer_Wrapper
 {
 private:
-	VkDevice				logicalDevice;
-	VkPhysicalDevice		physicalDevice;
+	VkDevice								logicalDevice;
+	VkPhysicalDevice						physicalDevice;
 
-	VkBuffer				vertexBuffer;
-	VkDeviceMemory			vertexBufferMemory;
-	VkBuffer				indexBuffer;
-	VkDeviceMemory			indexBufferMemory;
+	VkBuffer								vertexBuffer;
+	VkDeviceMemory							vertexBufferMemory;
+	VkBuffer								indexBuffer;
+	VkDeviceMemory							indexBufferMemory;
 
-	VkQueue					graphicsQueue;
+	VkQueue									graphicsQueue;
+
+	VkDescriptorSetLayout					descriptorSetLayout;
+	VkDescriptorPool						descriptorPool;
+	std::vector<VkDescriptorSet>			descriptorSets;
+
+	std::vector<VkBuffer>					uniformBuffers;
+	std::vector<VkDeviceMemory>				uniformBuffersMemory;
+	std::vector<VkImage>					swapImages;
 
 public:
+	Buffer_Wrapper();
 	~Buffer_Wrapper();
 	
-	void BufferInit(VkDevice logDevice, VkPhysicalDevice physDevice, VkQueue gQueue);
+	void BufferInit(VkDevice logDevice, VkPhysicalDevice physDevice, VkQueue gQueue, std::vector<VkImage> swapChainImages);
 
-	void CreateVertexBuffers(Command *cmd);
+	void CreateDescriptorSetLayout();
 
-	void CreateIndexBuffers(Command *cmd);
+	void CreateDescriptorPool();
+
+	void CreateDescriptorSets();
+
+	void CreateVertexBuffers(VkCommandPool cmd);
+
+	void CreateIndexBuffers(VkCommandPool cmd);
+
+	void CreateUniformBuffers();
 
 	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
@@ -79,6 +100,10 @@ public:
 	VkBuffer GetVertexBuffer(){ return vertexBuffer; }
 	VkDeviceMemory GetVertexBufferMemory() { return vertexBufferMemory; }
 	VkBuffer GetIndexBuffer(){ return indexBuffer; }
+	std::vector<VkBuffer> GetUniformBuffers() { return uniformBuffers; }
+	std::vector<VkDeviceMemory> GetUniformBuffersMemory() { return uniformBuffersMemory; }
+	std::vector<VkDescriptorSet> GetDescriptorSets() { return descriptorSets; }
+	VkDescriptorSetLayout GetDescriptorSetLayout(){ return descriptorSetLayout; }
 
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 };

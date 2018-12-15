@@ -61,5 +61,4 @@ GLFW_Wrapper::~GLFW_Wrapper()
 
 void GLFW_Wrapper::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
 	auto app = reinterpret_cast<Vulkan_Graphics*>(glfwGetWindowUserPointer(window));
-	app->framebufferResized = true;
 }

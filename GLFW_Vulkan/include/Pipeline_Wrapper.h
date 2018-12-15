@@ -44,7 +44,7 @@ public:
 
 	void Pipeline_WrapperInit(uint32_t maxPipelines);
 
-	void PipelineLoad(VkDevice device, char* vertFile, char* fragFile, VkFormat format, VkPhysicalDevice physDevice, VkExtent2D extents );
+	void PipelineLoad(VkDevice device, char* vertFile, char* fragFile, VkFormat format, VkPhysicalDevice physDevice, VkExtent2D extents, VkDescriptorSetLayout descriptorSetLayout);
 
 	Pipeline* NewPipe();
 

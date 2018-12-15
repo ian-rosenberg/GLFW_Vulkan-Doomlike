@@ -1,6 +1,23 @@
 #include "Buffers.h"
 #include "simple_logger.h"
 
+Buffer_Wrapper::Buffer_Wrapper()
+{
+	logicalDevice = VK_NULL_HANDLE;
+	physicalDevice = VK_NULL_HANDLE;
+	vertexBuffer = VK_NULL_HANDLE;
+	vertexBufferMemory = VK_NULL_HANDLE;
+	indexBuffer = VK_NULL_HANDLE;
+	indexBufferMemory = VK_NULL_HANDLE;
+	graphicsQueue = VK_NULL_HANDLE;
+	descriptorSetLayout = VK_NULL_HANDLE;
+	descriptorPool = VK_NULL_HANDLE;
+	descriptorSets = {};
+	uniformBuffers = {};
+	uniformBuffersMemory = {};
+	swapImages = {};
+}
+
 Buffer_Wrapper::~Buffer_Wrapper()
 {
 	vkDestroyBuffer(logicalDevice, indexBuffer, nullptr);
@@ -8,16 +25,27 @@ Buffer_Wrapper::~Buffer_Wrapper()
 	
 	vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
 	vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
+
+	vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
+
+	for (size_t i = 0; i < swapImages.size(); i++) 
+	{
+		vkDestroyBuffer(logicalDevice, uniformBuffers[i], nullptr);
+		vkFreeMemory(logicalDevice, uniformBuffersMemory[i], nullptr);
+	}
+
+	vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 }
 
-void Buffer_Wrapper::BufferInit(VkDevice logDevice, VkPhysicalDevice physDevice, VkQueue gQueue)
+void Buffer_Wrapper::BufferInit(VkDevice logDevice, VkPhysicalDevice physDevice, VkQueue gQueue, std::vector<VkImage> swapChainImages)
 {
 	logicalDevice = logDevice;
 	physicalDevice = physDevice;
 	graphicsQueue = gQueue;
+	swapImages = swapChainImages;
 }
 
-void Buffer_Wrapper::CreateVertexBuffers(Command* cmd)
+void Buffer_Wrapper::CreateVertexBuffers(VkCommandPool commandPool)
 {
 	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
@@ -32,13 +60,13 @@ void Buffer_Wrapper::CreateVertexBuffers(Command* cmd)
 
 	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
 
-	CopyBuffer(stagingBuffer, vertexBuffer, bufferSize, cmd->commandPool);
+	CopyBuffer(stagingBuffer, vertexBuffer, bufferSize, commandPool);
 
 	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
 	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 }
 
-void Buffer_Wrapper::CreateIndexBuffers(Command* cmd)
+void Buffer_Wrapper::CreateIndexBuffers(VkCommandPool commandPool)
 {
 	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
@@ -53,7 +81,7 @@ void Buffer_Wrapper::CreateIndexBuffers(Command* cmd)
 
 	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
 
-	CopyBuffer(stagingBuffer, indexBuffer, bufferSize, cmd->commandPool);
+	CopyBuffer(stagingBuffer, indexBuffer, bufferSize, commandPool);
 
 	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
 	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
@@ -136,4 +164,106 @@ void Buffer_Wrapper::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevice
 	vkQueueWaitIdle(graphicsQueue);
 
 	vkFreeCommandBuffers(logicalDevice, pool, 1, &commandBuffer);
+}
+
+void Buffer_Wrapper::CreateDescriptorSetLayout()
+{
+	VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+	VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+
+	uboLayoutBinding.binding = 0;
+	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	uboLayoutBinding.descriptorCount = 1;
+	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = 1;
+	layoutInfo.pBindings = &uboLayoutBinding;
+
+	if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
+	{
+		slog("failed to create descriptor set layout!");
+	}
+	else
+	{
+		slog("created descriptor set layout");
+	}
+}
+
+void Buffer_Wrapper::CreateUniformBuffers() 
+{
+	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+	uniformBuffers.resize(swapImages.size());
+	uniformBuffersMemory.resize(swapImages.size());
+
+	for (size_t i = 0; i < swapImages.size(); i++)
+	{
+		CreateBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+	}
+}
+
+void Buffer_Wrapper::CreateDescriptorPool()
+{	
+	descriptorPool = VK_NULL_HANDLE;
+	VkDescriptorPoolCreateInfo poolInfo = {};
+	VkDescriptorPoolSize poolSize = {};
+	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSize.descriptorCount = static_cast<uint32_t>(swapImages.size());
+
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = 1;
+	poolInfo.pPoolSizes = &poolSize;
+
+	poolInfo.maxSets = static_cast<uint32_t>(swapImages.size());
+
+	if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) 
+	{
+		slog("failed to create descriptor pool!");
+	}
+	else
+	{
+		slog("created descriptor pool!");
+	}
+}
+
+void Buffer_Wrapper::CreateDescriptorSets()
+{
+	std::vector<VkDescriptorSetLayout> layouts(swapImages.size(), descriptorSetLayout);
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapImages.size());
+	allocInfo.pSetLayouts = layouts.data();
+
+	descriptorSets.resize(swapImages.size());
+	
+	if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, descriptorSets.data()) != VK_SUCCESS)
+	{
+		slog("failed to allocate descriptor sets!");
+	}
+	else
+	{
+		slog("allocated descriptor sets");
+	}
+
+	for (size_t i = 0; i < swapImages.size(); i++) {
+		VkDescriptorBufferInfo bufferInfo = {};
+		bufferInfo.buffer = uniformBuffers[i];
+		bufferInfo.offset = 0;
+		bufferInfo.range = sizeof(UniformBufferObject);
+
+		VkWriteDescriptorSet descriptorWrite = {};
+		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrite.dstSet = descriptorSets[i];
+		descriptorWrite.dstBinding = 0;
+		descriptorWrite.dstArrayElement = 0;
+		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrite.descriptorCount = 1;
+		descriptorWrite.pBufferInfo = &bufferInfo;
+
+		vkUpdateDescriptorSets(logicalDevice, 1, &descriptorWrite, 0, nullptr);
+	}
 }

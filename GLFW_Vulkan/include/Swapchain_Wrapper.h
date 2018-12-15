@@ -49,6 +49,7 @@ public:
 
 	int GetPresentationMode();
 	VkSwapchainKHR GetSwapchain(){ return swapchain; }
+	std::vector<VkImage> GetSwapchainImages() { return swapImages; }
 
 	VkExtent2D ConfigureExtent(int width, int height);
 	VkExtent2D GetExtent(){return extent;}

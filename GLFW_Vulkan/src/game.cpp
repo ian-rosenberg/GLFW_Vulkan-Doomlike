@@ -10,8 +10,8 @@ using namespace std;
 
 int main(int agrc, char *argv[])
 {
-	uint32_t bufferFrame = 0;
-	VkCommandBuffer commandBuffer;
+	//uint32_t bufferFrame = 0;
+	//VkCommandBuffer commandBuffer;
 	
 	GLFW_Wrapper *glfwWrapper = new GLFW_Wrapper("Doomlike", 1280, 720, false);
 	Vulkan_Graphics vGraphics = Vulkan_Graphics(glfwWrapper, true);
