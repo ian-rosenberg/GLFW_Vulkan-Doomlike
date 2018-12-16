@@ -37,8 +37,6 @@ public:
 
 	Command* NewCommandPool();
 
-	//Command* GraphicsCommandPoolSetup(uint32_t count, Pipeline *pipe, uint32_t graphicsFamily);
-
 	Command* CreateCommandPool(uint32_t graphicsFamily, VkCommandPoolCreateFlags flags);
 
 	void CreateCommandBuffers(Command *cmd, uint32_t swpchnFbs, std::vector<VkFramebuffer> fBuffers, Pipeline* pipe, VkExtent2D extents, VkBuffer vertexBuffer, VkBuffer indexBuffer, std::vector<VkDescriptorSet> descriptorSets);
@@ -60,7 +58,7 @@ public:
 	void CmdRenderEnd(VkCommandBuffer cmdBuffer, Command *graphicsPool, VkQueue graphicsQueue);
 
 
-	void CommandEndSingleTime(Command *com, VkCommandBuffer commandBuffer, VkQueue graphicsQueue, VkDevice lDevice);
+	static void CommandEndSingleTime(Command *com, VkCommandBuffer commandBuffer, VkQueue graphicsQueue, VkDevice lDevice);
 
-	VkCommandBuffer CommandBeginSingleTime(Command *cmd);
+	static VkCommandBuffer CommandBeginSingleTime(Command *cmd, VkDevice device);
 };

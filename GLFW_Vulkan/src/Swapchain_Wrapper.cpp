@@ -1,6 +1,8 @@
 #include <algorithm>
+#include <array>
 
 #include "Swapchain_Wrapper.h"
+#include "Texture.h"
 #include "simple_logger.h"
 
 Swapchain_Wrapper::Swapchain_Wrapper()
@@ -242,45 +244,25 @@ void Swapchain_Wrapper::CreateSwapchain(VkDevice lDevice, VkSurfaceKHR surface, 
 
 VkImageView Swapchain_Wrapper::CreateImageView(VkImage image, VkFormat format, VkDevice lDevice)
 {
-	VkImageView imageView;
-	VkImageViewCreateInfo viewInfo = {};
-
-	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewInfo.image = image;
-	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	viewInfo.format = format;
-	viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-	viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-	viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-	viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	viewInfo.subresourceRange.baseMipLevel = 0;
-	viewInfo.subresourceRange.levelCount = 1;
-	viewInfo.subresourceRange.baseArrayLayer = 0;
-	viewInfo.subresourceRange.layerCount = 1;
-
-	if (vkCreateImageView(lDevice, &viewInfo, NULL, &imageView) != VK_SUCCESS)
-	{
-		slog("failed to create texture image view!");
-		return VK_NULL_HANDLE;
-	}
-
-	return imageView;
+	return Texture_Wrapper::CreateImageView(image, format, lDevice, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void Swapchain_Wrapper::CreateFrameBuffers(Pipeline* pipe)
+void Swapchain_Wrapper::CreateFrameBuffers(Pipeline* pipe, VkImageView depthImageView)
 {
 	frameBuffers.resize(imageViews.size());
 
 	for (size_t i = 0; i < imageViews.size(); i++) 
 	{
-		VkImageView attachments[] = { imageViews[i] };
+		std::array<VkImageView, 2> attachments = {
+			imageViews[i],
+			depthImageView
+		};
 
 		VkFramebufferCreateInfo framebufferInfo = {};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		framebufferInfo.renderPass = pipe->renderPass;
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		framebufferInfo.pAttachments = attachments.data();
 		framebufferInfo.width = extent.width;
 		framebufferInfo.height = extent.height;
 		framebufferInfo.layers = 1;

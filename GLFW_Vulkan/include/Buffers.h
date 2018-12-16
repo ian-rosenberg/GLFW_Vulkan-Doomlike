@@ -6,19 +6,26 @@
 #include "Commands_Wrapper.h"
 
 struct Vertex {
-	glm::vec2 pos;
+	glm::vec3 pos;
 	glm::vec3 color;
+	glm::vec2 texCoord;
 };
 
 const std::vector<Vertex> vertices = {
-	{ { -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
-	{ { 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } },
-	{ { 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } },
-	{ { -0.5f, 0.5f }, { 1.0f, 1.0f, 1.0f } }
+	{ { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
+	{ { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+	{ { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+	{ { -0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } },
+
+	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
+	{ { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+	{ { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+	{ { -0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
 };
 
 const std::vector<uint16_t> indices = {
-	0, 1, 2, 2, 3, 0
+	0, 1, 2, 2, 3, 0,
+	4, 5, 6, 6, 7, 4
 };
 
 struct UniformBufferObject {
@@ -38,18 +45,24 @@ static VkVertexInputBindingDescription GetBindingDescription()
 	return bindingDescription;
 }
 
-static std::array<VkVertexInputAttributeDescription, 2> GetAttributeDescriptions()
+static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions() 
 {
-	std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions = {};
+	std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
 
 	attributeDescriptions[0].binding = 0;
 	attributeDescriptions[0].location = 0;
-	attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+	attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 	attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
 	attributeDescriptions[1].binding = 0;
 	attributeDescriptions[1].location = 1;
 	attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 	attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+	attributeDescriptions[2].binding = 0;
+	attributeDescriptions[2].location = 2;
+	attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+	attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
 	return attributeDescriptions;
 }
@@ -73,13 +86,21 @@ private:
 
 	std::vector<VkBuffer>					uniformBuffers;
 	std::vector<VkDeviceMemory>				uniformBuffersMemory;
+
 	std::vector<VkImage>					swapImages;
+
+	VkImageView								textureImageView;
+	VkSampler								textureSampler;
+
+	VkImage									depthImage;
+	VkDeviceMemory							depthImageMemory;
+	VkImageView								depthImageView;
 
 public:
 	Buffer_Wrapper();
 	~Buffer_Wrapper();
 	
-	void BufferInit(VkDevice logDevice, VkPhysicalDevice physDevice, VkQueue gQueue, std::vector<VkImage> swapChainImages);
+	void BufferInit(VkDevice logDevice, VkPhysicalDevice physDevice, VkQueue gQueue, std::vector<VkImage> swapChainImages, Command *cmd);
 
 	void CreateDescriptorSetLayout();
 
@@ -87,15 +108,19 @@ public:
 
 	void CreateDescriptorSets();
 
-	void CreateVertexBuffers(VkCommandPool cmd);
+	void CreateVertexBuffers(Command *cmd);
 
-	void CreateIndexBuffers(VkCommandPool cmd);
+	void CreateIndexBuffers(Command *cmd);
 
 	void CreateUniformBuffers();
 
-	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	void CreateDepthResources(VkExtent2D extents, Command *graphicsCommand);
 
-	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool pool);
+	static void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory, VkDevice logicalDevice, VkQueue graphicsQueue, VkPhysicalDevice physicalDevice);
+
+	static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDevice logicalDevice, VkQueue graphicsQueue, Command* graphicsCmd);
+
+	void SetTextureInfo(VkImageView texImgView, VkSampler texSampler);
 
 	VkBuffer GetVertexBuffer(){ return vertexBuffer; }
 	VkDeviceMemory GetVertexBufferMemory() { return vertexBufferMemory; }
@@ -104,7 +129,14 @@ public:
 	std::vector<VkDeviceMemory> GetUniformBuffersMemory() { return uniformBuffersMemory; }
 	std::vector<VkDescriptorSet> GetDescriptorSets() { return descriptorSets; }
 	VkDescriptorSetLayout GetDescriptorSetLayout(){ return descriptorSetLayout; }
+	VkImageView GetDepthImageView(){ return depthImageView; }
 
-	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+	VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+	
+	VkFormat FindDepthFormat();
+
+	static bool HasStencilComponent(VkFormat format) { return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;}
+
+	static uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice);
 };
 

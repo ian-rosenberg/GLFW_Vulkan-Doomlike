@@ -12,6 +12,7 @@
 #include "Queue_Wrapper.h"
 #include "Commands_Wrapper.h"
 #include "Buffers.h"
+#include "Texture.h"
 
 class Vulkan_Graphics
 {
@@ -75,6 +76,7 @@ public:
 	Swapchain_Wrapper				*swapchainWrapper;
 	Pipeline_Wrapper				*pipeWrapper;
 	Buffer_Wrapper					*bufferWrapper;
+	Texture_Wrapper					*textureWrapper;
 	
 	Vulkan_Graphics(GLFW_Wrapper *glfwWrapper, bool enableValidation);
 	~Vulkan_Graphics();

@@ -60,7 +60,7 @@ public:
 
 	VkImageView CreateImageView(VkImage image, VkFormat format, VkDevice lDevice);
 
-	void CreateFrameBuffers(Pipeline* pipe);
+	void CreateFrameBuffers(Pipeline* pipe, VkImageView depthImageView);
 
 	std::vector<VkFramebuffer> GetFrameBuffers(){ return frameBuffers; }
 

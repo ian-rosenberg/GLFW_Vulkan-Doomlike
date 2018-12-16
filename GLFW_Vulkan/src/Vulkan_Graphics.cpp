@@ -1,4 +1,5 @@
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/trigonometric.hpp>
@@ -60,6 +61,7 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	pipeWrapper = new Pipeline_Wrapper();
 	cmdWrapper = new Commands_Wrapper();
 	bufferWrapper = new Buffer_Wrapper();
+	textureWrapper = new Texture_Wrapper();
 	glfwWrapper = gWrapper;
 	enableValidationLayers = enableValidation;
 	validationDeviceLayerNames = {};
@@ -73,9 +75,17 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	queueWrapper->SetupDeviceQueues(logicalDevice);
 	swapchainWrapper->SwapchainInit(physicalDevice, logicalDevice, surface, glfwWrapper->GetWindowWidth(), glfwWrapper->GetWindowHeight(), queueWrapper, glfwWrapper->GetWindow());
 	
+	graphicsQueue = queueWrapper->GetGraphicsQueue();
+
+	cmdWrapper->CommandsWrapperInit(8, logicalDevice);
+
+	graphicsCommands = cmdWrapper->CreateCommandPool(queueWrapper->GetGraphicsQueueFamily(), 0);
+
+	stagingCommand = *(cmdWrapper->CreateCommandPool(queueWrapper->GetGraphicsQueueFamily(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT));
+
 	//following tutorial/DJ but using tutorial as basis for now, will add model stuff later
 
-	bufferWrapper->BufferInit(logicalDevice, physicalDevice, queueWrapper->GetGraphicsQueue(), swapchainWrapper->GetSwapchainImages());
+	bufferWrapper->BufferInit(logicalDevice, physicalDevice, queueWrapper->GetGraphicsQueue(), swapchainWrapper->GetSwapchainImages(), graphicsCommands);
 
 	bufferWrapper->CreateDescriptorSetLayout();
 
@@ -86,18 +96,23 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	pipeWrapper->PipelineLoad(logicalDevice, "shaders/vert.spv", "shaders/frag.spv", swapchainWrapper->GetFormat(), physicalDevice, swapchainWrapper->GetExtent(), bufferWrapper->GetDescriptorSetLayout());
 
 	//swapchainWrapper->SetupFramebuffers(pipeWrapper->GetPipe());
-	swapchainWrapper->CreateFrameBuffers(&pipeWrapper->GetCurrentPipe());
-	
-	cmdWrapper->CommandsWrapperInit(8, logicalDevice);
+	bufferWrapper->CreateDepthResources(swapchainWrapper->GetExtent(), graphicsCommands);
+
+	swapchainWrapper->CreateFrameBuffers(&pipeWrapper->GetCurrentPipe(), bufferWrapper->GetDepthImageView());
 
 	//graphicsCommands = cmdWrapper->GraphicsCommandPoolSetup(swapchainWrapper->GetFrameBuffers().size(), currentPipe, queueWrapper->GetGraphicsQueueFamily());
-	graphicsCommands = cmdWrapper->CreateCommandPool(queueWrapper->GetGraphicsQueueFamily(), 0);
+	
+	textureWrapper->Texture_WrapperInit(physicalDevice, logicalDevice, graphicsQueue, graphicsCommands);
+	
+	textureWrapper->CreateTextureImage();
+	textureWrapper->CreateTextureImageView();
+	textureWrapper->CreateTextureSampler();
 
-	stagingCommand = *(cmdWrapper->CreateCommandPool(queueWrapper->GetGraphicsQueueFamily(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT));
-
-	bufferWrapper->CreateVertexBuffers(graphicsCommands->commandPool);
-	bufferWrapper->CreateIndexBuffers(graphicsCommands->commandPool);
+	bufferWrapper->CreateVertexBuffers(graphicsCommands);
+	bufferWrapper->CreateIndexBuffers(graphicsCommands);
 	bufferWrapper->CreateUniformBuffers();
+
+	bufferWrapper->SetTextureInfo(textureWrapper->GetTextureImageView(), textureWrapper->GetTextureSampler());
 
 	bufferWrapper->CreateDescriptorSetLayout();
 	bufferWrapper->CreateDescriptorPool();
@@ -342,7 +357,7 @@ bool Vulkan_Graphics::IsDeviceSuitable(VkPhysicalDevice device) {
 	slog("driverVersion: %i", deviceProperties.driverVersion);
 	slog("supports Geometry Shader: %i", deviceFeatures.geometryShader);
 
-	return deviceFeatures.geometryShader;
+	return deviceFeatures.geometryShader && deviceFeatures.samplerAnisotropy;
 }
 
 VkDeviceCreateInfo Vulkan_Graphics::GetDeviceInfo(bool validation)
@@ -353,8 +368,6 @@ VkDeviceCreateInfo Vulkan_Graphics::GetDeviceInfo(bool validation)
 
 	createInfo.pQueueCreateInfos = queueWrapper->Queue_WrapperInit(&physicalDevice, surface);
 	createInfo.queueCreateInfoCount = queueWrapper->GetWorkQueueCount();
-
-
 	
 	deviceFeatures.samplerAnisotropy = VK_TRUE;
 
