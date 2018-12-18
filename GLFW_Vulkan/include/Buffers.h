@@ -9,9 +9,14 @@ struct Vertex {
 	glm::vec3 pos;
 	glm::vec3 color;
 	glm::vec2 texCoord;
+
+	bool operator==(const Vertex& other) const {
+		return pos == other.pos && color == other.color && texCoord == other.texCoord;
+	}
 };
 
-const std::vector<Vertex> vertices = {
+
+/*const std::vector<Vertex> vertices = {
 	{ { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
 	{ { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
 	{ { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
@@ -26,7 +31,7 @@ const std::vector<Vertex> vertices = {
 const std::vector<uint16_t> indices = {
 	0, 1, 2, 2, 3, 0,
 	4, 5, 6, 6, 7, 4
-};
+};*/
 
 struct UniformBufferObject {
 	glm::mat4 model;
@@ -108,9 +113,9 @@ public:
 
 	void CreateDescriptorSets();
 
-	void CreateVertexBuffers(Command *cmd);
+	void CreateVertexBuffers(Command *cmd, const std::vector<Vertex> vertices);
 
-	void CreateIndexBuffers(Command *cmd);
+	void CreateIndexBuffers(Command *cmd, const std::vector<uint32_t> indices);
 
 	void CreateUniformBuffers();
 

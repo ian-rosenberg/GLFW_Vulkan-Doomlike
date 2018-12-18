@@ -13,6 +13,7 @@
 #include "Commands_Wrapper.h"
 #include "Buffers.h"
 #include "Texture.h"
+#include "Model.h"
 
 class Vulkan_Graphics
 {
@@ -48,6 +49,8 @@ private:
 
 	Command 						stagingCommand;
 
+	Model							*testModel;
+
 
 	void CreateVulkanInstance();
 	void CreateLogicalDevice();
@@ -77,6 +80,7 @@ public:
 	Pipeline_Wrapper				*pipeWrapper;
 	Buffer_Wrapper					*bufferWrapper;
 	Texture_Wrapper					*textureWrapper;
+	Model_Manager					*modelManager;
 	
 	Vulkan_Graphics(GLFW_Wrapper *glfwWrapper, bool enableValidation);
 	~Vulkan_Graphics();

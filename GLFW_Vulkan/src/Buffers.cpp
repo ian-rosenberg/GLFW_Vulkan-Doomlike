@@ -52,7 +52,7 @@ void Buffer_Wrapper::SetTextureInfo(VkImageView texImgView, VkSampler texSampler
 	textureSampler = texSampler;
 }
 
-void Buffer_Wrapper::CreateVertexBuffers(Command *cmd)
+void Buffer_Wrapper::CreateVertexBuffers(Command *cmd, const std::vector<Vertex> vertices)
 {
 	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
@@ -73,7 +73,7 @@ void Buffer_Wrapper::CreateVertexBuffers(Command *cmd)
 	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 }
 
-void Buffer_Wrapper::CreateIndexBuffers(Command *cmd)
+void Buffer_Wrapper::CreateIndexBuffers(Command *cmd, const std::vector<uint32_t> indices)
 {
 	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 

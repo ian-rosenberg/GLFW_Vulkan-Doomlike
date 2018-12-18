@@ -62,6 +62,7 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	cmdWrapper = new Commands_Wrapper();
 	bufferWrapper = new Buffer_Wrapper();
 	textureWrapper = new Texture_Wrapper();
+	modelManager = new Model_Manager();
 	glfwWrapper = gWrapper;
 	enableValidationLayers = enableValidation;
 	validationDeviceLayerNames = {};
@@ -108,8 +109,10 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	textureWrapper->CreateTextureImageView();
 	textureWrapper->CreateTextureSampler();
 
-	bufferWrapper->CreateVertexBuffers(graphicsCommands);
-	bufferWrapper->CreateIndexBuffers(graphicsCommands);
+	testModel = modelManager->LoadModel("models/chalet.obj");
+
+	bufferWrapper->CreateVertexBuffers(graphicsCommands, testModel->vertices);
+	bufferWrapper->CreateIndexBuffers(graphicsCommands, testModel->indices);
 	bufferWrapper->CreateUniformBuffers();
 
 	bufferWrapper->SetTextureInfo(textureWrapper->GetTextureImageView(), textureWrapper->GetTextureSampler());
@@ -118,7 +121,7 @@ Vulkan_Graphics::Vulkan_Graphics(GLFW_Wrapper *gWrapper, bool enableValidation)
 	bufferWrapper->CreateDescriptorPool();
 	bufferWrapper->CreateDescriptorSets();
 
-	cmdWrapper->CreateCommandBuffers(graphicsCommands, swapchainWrapper->GetFrameBuffers().size(), swapchainWrapper->GetFrameBuffers(), &pipeWrapper->GetCurrentPipe(), swapchainWrapper->GetExtent(), bufferWrapper->GetVertexBuffer(), bufferWrapper->GetIndexBuffer(), bufferWrapper->GetDescriptorSets());
+	cmdWrapper->CreateCommandBuffers(graphicsCommands, swapchainWrapper->GetFrameBuffers().size(), swapchainWrapper->GetFrameBuffers(), &pipeWrapper->GetCurrentPipe(), swapchainWrapper->GetExtent(), bufferWrapper->GetVertexBuffer(), bufferWrapper->GetIndexBuffer(), bufferWrapper->GetDescriptorSets(), testModel->indices);
 
 	CreateSemaphores();
 
